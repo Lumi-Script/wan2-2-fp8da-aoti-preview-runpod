@@ -1,12 +1,12 @@
 ---
 title: Wan2.2 14B Fast
-emoji: 🎥💨
+emoji: 👁
 colorFrom: gray
 colorTo: pink
 sdk: gradio
 sdk_version: 5.44.1
 app_file: app.py
-pinned: true
+pinned: false
 short_description: generate a video from an image with a text prompt
 ---
 
