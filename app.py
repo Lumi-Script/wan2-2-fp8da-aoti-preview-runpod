@@ -60,15 +60,20 @@ pipe.load_lora_weights(
     weight_name="Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors", 
     adapter_name="lightx2v_2", **kwargs_lora
 )
+
+pipe.set_adapters(["lightx2v", "lightx2v_2", "livewallpaper"], adapter_weights=[1., 1., 2.])
+pipe.fuse_lora(adapter_names=["lightx2v"], lora_scale=3., components=["transformer"])
+pipe.fuse_lora(adapter_names=["lightx2v_2"], lora_scale=1., components=["transformer_2"])
+pipe.fuse_lora(adapter_names=["livewallpaper"], lora_scale=2., components=["transformer"])
+pipe.unload_lora_weights()
+
 # livewallpaper
 pipe.load_lora_weights(
     "voxvici/flux-lora", 
     weight_name="livewallpaper_wan22_14b_i2v_low_model_0_1_e26.safetensors", 
     adapter_name="livewallpaper"
 )
-pipe.set_adapters(["lightx2v", "lightx2v_2", "livewallpaper"], adapter_weights=[1., 1., 2.])
-pipe.fuse_lora(adapter_names=["lightx2v"], lora_scale=3., components=["transformer"])
-pipe.fuse_lora(adapter_names=["lightx2v_2"], lora_scale=1., components=["transformer_2"])
+pipe.set_adapters(["livewallpaper"], adapter_weights=[2.])
 pipe.fuse_lora(adapter_names=["livewallpaper"], lora_scale=2., components=["transformer"])
 pipe.unload_lora_weights()
 
