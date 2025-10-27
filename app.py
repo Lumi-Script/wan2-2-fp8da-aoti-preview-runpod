@@ -242,7 +242,7 @@ def generate_video(
     return video_path, current_seed
 
 with gr.Blocks() as demo:
-    gr.Markdown("# Fast 4 steps Wan 2.2 I2V (14B) with Lightning LoRA")
+    gr.Markdown("# Fast 4 steps Wan 2.2 I2V (14B) with Lightning LoRA + Live Wallpaper LoRA")
     gr.Markdown("run Wan 2.2 in just 4-8 steps, with [Lightning LoRA](https://huggingface.co/Kijai/WanVideo_comfy/tree/main/Wan22-Lightning), fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU⚡️")
     with gr.Row():
         with gr.Column():
