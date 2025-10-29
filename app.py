@@ -34,13 +34,16 @@ MIN_DURATION = round(MIN_FRAMES_MODEL/FIXED_FPS,1)
 MAX_DURATION = round(MAX_FRAMES_MODEL/FIXED_FPS,1)
 
 
-pipe = WanImageToVideoPipeline.from_pretrained(MODEL_ID,
-    transformer=WanTransformer3DModel.from_pretrained('cbensimon/Wan2.2-I2V-A14B-bf16-Diffusers',
+pipe = WanImageToVideoPipeline.from_pretrained(
+    MODEL_ID,
+    transformer=WanTransformer3DModel.from_pretrained(
+        'cbensimon/Wan2.2-I2V-A14B-bf16-Diffusers',
         subfolder='transformer',
         torch_dtype=torch.bfloat16,
         device_map='cuda',
     ),
-    transformer_2=WanTransformer3DModel.from_pretrained('cbensimon/Wan2.2-I2V-A14B-bf16-Diffusers',
+    transformer_2=WanTransformer3DModel.from_pretrained(
+        'cbensimon/Wan2.2-I2V-A14B-bf16-Diffusers',
         subfolder='transformer_2',
         torch_dtype=torch.bfloat16,
         device_map='cuda',
@@ -49,15 +52,15 @@ pipe = WanImageToVideoPipeline.from_pretrained(MODEL_ID,
 ).to('cuda')
 
 pipe.load_lora_weights(
-    "Kijai/WanVideo_comfy", 
-    weight_name="Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors", 
+    "Kijai/WanVideo_comfy",
+    weight_name="Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors",
     adapter_name="lightx2v"
 )
 kwargs_lora = {}
 kwargs_lora["load_into_transformer_2"] = True
 pipe.load_lora_weights(
-    "Kijai/WanVideo_comfy", 
-    weight_name="Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors", 
+    "Kijai/WanVideo_comfy",
+    weight_name="Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors",
     adapter_name="lightx2v_2", **kwargs_lora
 )
 
@@ -68,8 +71,8 @@ pipe.unload_lora_weights()
 
 # livewallpaper
 pipe.load_lora_weights(
-    "voxvici/flux-lora", 
-    weight_name="livewallpaper_wan22_14b_i2v_low_model_0_1_e26.safetensors", 
+    "voxvici/flux-lora",
+    weight_name="livewallpaper_wan22_14b_i2v_low_model_0_1_e26.safetensors",
     adapter_name="livewallpaper"
 )
 pipe.set_adapters(["livewallpaper"], adapter_weights=[1.])
@@ -87,6 +90,7 @@ aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
 default_prompt_i2v = "make this image come alive, cinematic motion, smooth animation"
 default_negative_prompt = "色调艳丽, 过曝, 静态, 细节模糊不清, 字幕, 风格, 作品, 画作, 画面, 静止, 整体发灰, 最差质量, 低质量, JPEG压缩残留, 丑陋的, 残缺的, 多余的手指, 画得不好的手部, 画得不好的脸部, 畸形的, 毁容的, 形态畸形的肢体, 手指融合, 静止不动的画面, 杂乱的背景, 三条腿, 背景人很多, 倒着走"
 
+
 def resize_image(image: Image.Image) -> Image.Image:
     """
     Resizes an image to fit within the model's constraints, preserving aspect ratio as much as possible.
@@ -98,12 +102,12 @@ def resize_image(image: Image.Image) -> Image.Image:
         return image.resize((SQUARE_DIM, SQUARE_DIM), Image.LANCZOS)
 
     aspect_ratio = width / height
-    
-    MAX_ASPECT_RATIO = MAX_DIM / MIN_DIM 
-    MIN_ASPECT_RATIO = MIN_DIM / MAX_DIM 
+
+    MAX_ASPECT_RATIO = MAX_DIM / MIN_DIM
+    MIN_ASPECT_RATIO = MIN_DIM / MAX_DIM
 
     image_to_resize = image
-    
+
     if aspect_ratio > MAX_ASPECT_RATIO:
         # Very wide image -> crop width to fit 832x480 aspect ratio
         target_w, target_h = MAX_DIM, MIN_DIM
@@ -129,8 +133,19 @@ def resize_image(image: Image.Image) -> Image.Image:
 
     final_w = max(MIN_DIM, min(MAX_DIM, final_w))
     final_h = max(MIN_DIM, min(MAX_DIM, final_h))
-    
+
     return image_to_resize.resize((final_w, final_h), Image.LANCZOS)
+
+
+def resize_and_crop_to_match(target_image, reference_image):
+    """Resizes and center-crops the target image to match the reference image's dimensions."""
+    ref_width, ref_height = reference_image.size
+    target_width, target_height = target_image.size
+    scale = max(ref_width / target_width, ref_height / target_height)
+    new_width, new_height = int(target_width * scale), int(target_height * scale)
+    resized = target_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    left, top = (new_width - ref_width) // 2, (new_height - ref_height) // 2
+    return resized.crop((left, top, left + ref_width, top + ref_height))
 
 
 def get_num_frames(duration_seconds: float):
@@ -141,52 +156,81 @@ def get_num_frames(duration_seconds: float):
     ))
 
 
-def get_duration(
-    input_image,
+def get_inference_duration(
+    resized_image,
+    processed_last_image,
     prompt,
     steps,
     negative_prompt,
-    duration_seconds,
+    num_frames,
     guidance_scale,
     guidance_scale_2,
-    seed,
-    randomize_seed,
-    progress,
+    current_seed,
+    progress
 ):
     BASE_FRAMES_HEIGHT_WIDTH = 81 * 832 * 624
     BASE_STEP_DURATION = 15
-    width, height = resize_image(input_image).size
-    frames = get_num_frames(duration_seconds)
-    factor = frames * width * height / BASE_FRAMES_HEIGHT_WIDTH
+    width, height = resized_image.size
+    factor = num_frames * width * height / BASE_FRAMES_HEIGHT_WIDTH
     step_duration = BASE_STEP_DURATION * factor ** 1.5
     return 5 + int(steps) * step_duration
 
-@spaces.GPU(duration=get_duration)
+
+@spaces.GPU(duration=get_inference_duration)
+def run_inference(
+    resized_image,
+    processed_last_image,
+    prompt,
+    steps,
+    negative_prompt,
+    num_frames,
+    guidance_scale,
+    guidance_scale_2,
+    current_seed,
+    progress=gr.Progress(track_tqdm=True),
+):
+    return pipe(
+        image=resized_image,
+        last_image=processed_last_image,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        height=resized_image.height,
+        width=resized_image.width,
+        num_frames=num_frames,
+        guidance_scale=float(guidance_scale),
+        guidance_scale_2=float(guidance_scale_2),
+        num_inference_steps=int(steps),
+        generator=torch.Generator(device="cuda").manual_seed(current_seed),
+    ).frames[0]
+
+
 def generate_video(
     input_image,
+    last_image,
     prompt,
-    steps = 4,
+    steps=4,
     negative_prompt=default_negative_prompt,
-    duration_seconds = MAX_DURATION,
-    guidance_scale = 1,
-    guidance_scale_2 = 1,    
-    seed = 42,
-    randomize_seed = False,
+    duration_seconds=MAX_DURATION,
+    guidance_scale=1,
+    guidance_scale_2=1,
+    seed=42,
+    randomize_seed=False,
     progress=gr.Progress(track_tqdm=True),
 ):
     """
     Generate a video from an input image using the Wan 2.2 14B I2V model with Lightning LoRA.
-    
+
     This function takes an input image and generates a video animation based on the provided
     prompt and parameters. It uses an FP8 qunatized Wan 2.2 14B Image-to-Video model in with Lightning LoRA
     for fast generation in 4-8 steps.
-    
+
     Args:
         input_image (PIL.Image): The input image to animate. Will be resized to target dimensions.
+        last_image (PIL.Image, optional): The optional last image for the video.
         prompt (str): Text prompt describing the desired animation or motion.
         steps (int, optional): Number of inference steps. More steps = higher quality but slower.
             Defaults to 4. Range: 1-30.
-        negative_prompt (str, optional): Negative prompt to avoid unwanted elements. 
+        negative_prompt (str, optional): Negative prompt to avoid unwanted elements.
             Defaults to default_negative_prompt (contains unwanted visual artifacts).
         duration_seconds (float, optional): Duration of the generated video in seconds.
             Defaults to 2. Clamped between MIN_FRAMES_MODEL/FIXED_FPS and MAX_FRAMES_MODEL/FIXED_FPS.
@@ -199,15 +243,15 @@ def generate_video(
         randomize_seed (bool, optional): Whether to use a random seed instead of the provided seed.
             Defaults to False.
         progress (gr.Progress, optional): Gradio progress tracker. Defaults to gr.Progress(track_tqdm=True).
-    
+
     Returns:
         tuple: A tuple containing:
             - video_path (str): Path to the generated video file (.mp4)
             - current_seed (int): The seed used for generation (useful when randomize_seed=True)
-    
+
     Raises:
         gr.Error: If input_image is None (no image uploaded).
-    
+
     Note:
         - Frame count is calculated as duration_seconds * FIXED_FPS (24)
         - Output dimensions are adjusted to be multiples of MOD_VALUE (32)
@@ -216,23 +260,27 @@ def generate_video(
     """
     if input_image is None:
         raise gr.Error("Please upload an input image.")
-    
+
     num_frames = get_num_frames(duration_seconds)
     current_seed = random.randint(0, MAX_SEED) if randomize_seed else int(seed)
     resized_image = resize_image(input_image)
 
-    output_frames_list = pipe(
-        image=resized_image,
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        height=resized_image.height,
-        width=resized_image.width,
-        num_frames=num_frames,
-        guidance_scale=float(guidance_scale),
-        guidance_scale_2=float(guidance_scale_2),
-        num_inference_steps=int(steps),
-        generator=torch.Generator(device="cuda").manual_seed(current_seed),
-    ).frames[0]
+    processed_last_image = None
+    if last_image:
+        processed_last_image = resize_and_crop_to_match(last_image, resized_image)
+
+    output_frames_list = run_inference(
+        resized_image,
+        processed_last_image,
+        prompt,
+        steps,
+        negative_prompt,
+        num_frames,
+        guidance_scale,
+        guidance_scale_2,
+        current_seed,
+        progress,
+    )
 
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmpfile:
         video_path = tmpfile.name
@@ -241,54 +289,36 @@ def generate_video(
 
     return video_path, current_seed
 
+
 with gr.Blocks() as demo:
     gr.Markdown("# Fast 4 steps Wan 2.2 I2V (14B) with Lightning LoRA + Live Wallpaper LoRA")
     gr.Markdown("run Wan 2.2 in just 4-8 steps, with [Lightning LoRA](https://huggingface.co/Kijai/WanVideo_comfy/tree/main/Wan22-Lightning), fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU⚡️")
     with gr.Row():
         with gr.Column():
             input_image_component = gr.Image(type="pil", label="Input Image")
+            last_image_component = gr.Image(type="pil", label="Last Image (Optional)")
             prompt_input = gr.Textbox(label="Prompt", value=default_prompt_i2v)
             duration_seconds_input = gr.Slider(minimum=MIN_DURATION, maximum=MAX_DURATION, step=0.1, value=3.5, label="Duration (seconds)", info=f"Clamped to model's {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.")
-            
+
             with gr.Accordion("Advanced Settings", open=False):
                 negative_prompt_input = gr.Textbox(label="Negative Prompt", value=default_negative_prompt, lines=3)
                 seed_input = gr.Slider(label="Seed", minimum=0, maximum=MAX_SEED, step=1, value=42, interactive=True)
                 randomize_seed_checkbox = gr.Checkbox(label="Randomize seed", value=True, interactive=True)
-                steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps") 
+                steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps")
                 guidance_scale_input = gr.Slider(minimum=0.0, maximum=10.0, step=0.5, value=1, label="Guidance Scale - high noise stage")
                 guidance_scale_2_input = gr.Slider(minimum=0.0, maximum=10.0, step=0.5, value=1, label="Guidance Scale 2 - low noise stage")
 
             generate_button = gr.Button("Generate Video", variant="primary")
         with gr.Column():
             video_output = gr.Video(label="Generated Video", autoplay=True, interactive=False)
-    
+
     ui_inputs = [
-        input_image_component, prompt_input, steps_slider,
+        input_image_component, last_image_component, prompt_input, steps_slider,
         negative_prompt_input, duration_seconds_input,
         guidance_scale_input, guidance_scale_2_input, seed_input, randomize_seed_checkbox
     ]
     generate_button.click(fn=generate_video, inputs=ui_inputs, outputs=[video_output, seed_input])
 
-    gr.Examples(
-        examples=[ 
-            [
-                "wan_i2v_input.JPG",
-                "POV selfie video, white cat with sunglasses standing on surfboard, relaxed smile, tropical beach behind (clear water, green hills, blue sky with clouds). Surfboard tips, cat falls into ocean, camera plunges underwater with bubbles and sunlight beams. Brief underwater view of cat’s face, then cat resurfaces, still filming selfie, playful summer vacation mood.",
-                4,
-            ],
-            [
-                "wan22_input_2.jpg",
-                "A sleek lunar vehicle glides into view from left to right, kicking up moon dust as astronauts in white spacesuits hop aboard with characteristic lunar bouncing movements. In the distant background, a VTOL craft descends straight down and lands silently on the surface. Throughout the entire scene, ethereal aurora borealis ribbons dance across the star-filled sky, casting shimmering curtains of green, blue, and purple light that bathe the lunar landscape in an otherworldly, magical glow.",
-                4,
-            ],
-            [
-                "kill_bill.jpeg",
-                "Uma Thurman's character, Beatrix Kiddo, holds her razor-sharp katana blade steady in the cinematic lighting. Suddenly, the polished steel begins to soften and distort, like heated metal starting to lose its structural integrity. The blade's perfect edge slowly warps and droops, molten steel beginning to flow downward in silvery rivulets while maintaining its metallic sheen. The transformation starts subtly at first - a slight bend in the blade - then accelerates as the metal becomes increasingly fluid. The camera holds steady on her face as her piercing eyes gradually narrow, not with lethal focus, but with confusion and growing alarm as she watches her weapon dissolve before her eyes. Her breathing quickens slightly as she witnesses this impossible transformation. The melting intensifies, the katana's perfect form becoming increasingly abstract, dripping like liquid mercury from her grip. Molten droplets fall to the ground with soft metallic impacts. Her expression shifts from calm readiness to bewilderment and concern as her legendary instrument of vengeance literally liquefies in her hands, leaving her defenseless and disoriented.",
-                6,
-            ],
-        ],
-        inputs=[input_image_component, prompt_input, steps_slider], outputs=[video_output, seed_input], fn=generate_video, cache_examples="lazy"
-    )
 
 if __name__ == "__main__":
     demo.queue().launch(mcp_server=True)
