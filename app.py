@@ -159,7 +159,7 @@ def get_duration(
     frames = get_num_frames(duration_seconds)
     factor = frames * width * height / BASE_FRAMES_HEIGHT_WIDTH
     step_duration = BASE_STEP_DURATION * factor ** 1.5
-    return 5 + int(steps) * step_duration
+    return int(steps) * step_duration
 
 @spaces.GPU(duration=get_duration)
 def generate_video(
