@@ -100,7 +100,7 @@ pipe.load_lora_weights(
     adapter_name="livewallpaper"
 )
 pipe.set_adapters(["livewallpaper"], adapter_weights=[1.])
-pipe.fuse_lora(adapter_names=["livewallpaper"], lora_scale=1., components=["transformer"])
+pipe.fuse_lora(adapter_names=["livewallpaper"], lora_scale=.7, components=["transformer"])
 pipe.unload_lora_weights()
 
 quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
@@ -221,13 +221,11 @@ def run_inference(
     scheduler_class = SCHEDULER_MAP.get(scheduler_name)
     if scheduler_class.__name__ != pipe.scheduler.config._class_name or flow_shift != pipe.scheduler.config.get("flow_shift", "shift"):
         config = copy.deepcopy(original_scheduler.config)
-        print("update scheduler")
         if scheduler_class == FlowMatchEulerDiscreteScheduler:
             config['shift'] = flow_shift
         else:
             config['flow_shift'] = flow_shift
         pipe.scheduler = scheduler_class.from_config(config)
-        print(pipe.scheduler.config)
 
     result = pipe(
         image=resized_image,
@@ -353,11 +351,11 @@ with gr.Blocks() as demo:
             prompt_input = gr.Textbox(label="Prompt", value=default_prompt_i2v)
             duration_seconds_input = gr.Slider(minimum=MIN_DURATION, maximum=MAX_DURATION, step=0.1, value=3.5, label="Duration (seconds)", info=f"Clamped to model's {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.")
             steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps")
-            quality_slider = gr.Slider(minimum=1, maximum=10, step=1, value=6, label="Video Quality")
 
             with gr.Accordion("Advanced Settings", open=False):
                 last_image_component = gr.Image(type="pil", label="Last Image (Optional)")
                 negative_prompt_input = gr.Textbox(label="Negative Prompt", value=default_negative_prompt, info="Used if any Guidance Scale > 1.", lines=3)
+                quality_slider = gr.Slider(minimum=1, maximum=10, step=1, value=6, label="Video Quality")
                 seed_input = gr.Slider(label="Seed", minimum=0, maximum=MAX_SEED, step=1, value=42, interactive=True)
                 randomize_seed_checkbox = gr.Checkbox(label="Randomize seed", value=True, interactive=True)
                 guidance_scale_input = gr.Slider(minimum=0.0, maximum=10.0, step=0.5, value=1, label="Guidance Scale - high noise stage")
