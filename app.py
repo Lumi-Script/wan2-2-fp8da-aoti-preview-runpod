@@ -244,7 +244,7 @@ def generate_video(
         randomize_seed (bool, optional): Whether to use a random seed instead of the provided seed.
             Defaults to False.
         quality (float, optional): Video output quality. Default is 5. Uses variable bit rate.
-            Highest quality is 10, lowest is 0.
+            Highest quality is 10, lowest is 1.
         progress (gr.Progress, optional): Gradio progress tracker. Defaults to gr.Progress(track_tqdm=True).
 
     Returns:
@@ -303,7 +303,7 @@ with gr.Blocks() as demo:
             prompt_input = gr.Textbox(label="Prompt", value=default_prompt_i2v)
             duration_seconds_input = gr.Slider(minimum=MIN_DURATION, maximum=MAX_DURATION, step=0.1, value=3.5, label="Duration (seconds)", info=f"Clamped to model's {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.")
             steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps")
-            quality_slider = gr.Slider(minimum=0, maximum=10, step=1, value=5, label="Video Quality")
+            quality_slider = gr.Slider(minimum=1, maximum=10, step=1, value=5, label="Video Quality")
 
             with gr.Accordion("Advanced Settings", open=False):
                 last_image_component = gr.Image(type="pil", label="Last Image (Optional)")
