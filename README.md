@@ -1,7 +1,7 @@
 ---
-title: Wan2.2 14B Fast
-emoji: 👁
-colorFrom: gray
+title: Wan2.2 14B Fast Preview
+emoji: 🐌
+colorFrom: yellow
 colorTo: pink
 sdk: gradio
 sdk_version: 5.44.1
