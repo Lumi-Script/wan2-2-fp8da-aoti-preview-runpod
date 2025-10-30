@@ -219,7 +219,7 @@ def run_inference(
 ):
 
     scheduler_class = SCHEDULER_MAP.get(scheduler_name)
-    if scheduler_class != pipe.scheduler._class_name or flow_shift != pipe.scheduler.config.get("flow_shift", "shift"):
+    if scheduler_class.__name__ != pipe.scheduler.config._class_name or flow_shift != pipe.scheduler.config.get("flow_shift", "shift"):
         config = copy.deepcopy(original_scheduler.config)
         print("update scheduler")
         if scheduler_class == FlowMatchEulerDiscreteScheduler:
@@ -227,6 +227,7 @@ def run_inference(
         else:
             config['flow_shift'] = flow_shift
         pipe.scheduler = scheduler_class.from_config(config)
+        print(pipe.scheduler.config)
 
     result = pipe(
         image=resized_image,
