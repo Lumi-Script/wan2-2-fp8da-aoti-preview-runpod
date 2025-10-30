@@ -30,8 +30,8 @@ FIXED_FPS = 16
 MIN_FRAMES_MODEL = 8
 MAX_FRAMES_MODEL = 160
 
-MIN_DURATION = round(MIN_FRAMES_MODEL/FIXED_FPS,1)
-MAX_DURATION = round(MAX_FRAMES_MODEL/FIXED_FPS,1)
+MIN_DURATION = round(MIN_FRAMES_MODEL / FIXED_FPS, 1)
+MAX_DURATION = round(MAX_FRAMES_MODEL / FIXED_FPS, 1)
 
 
 pipe = WanImageToVideoPipeline.from_pretrained(
@@ -215,6 +215,7 @@ def generate_video(
     guidance_scale_2=1,
     seed=42,
     randomize_seed=False,
+    quality=5,
     progress=gr.Progress(track_tqdm=True),
 ):
     """
@@ -242,6 +243,8 @@ def generate_video(
             Range: 0 to MAX_SEED (2147483647).
         randomize_seed (bool, optional): Whether to use a random seed instead of the provided seed.
             Defaults to False.
+        quality (float, optional): Video output quality. Default is 5. Uses variable bit rate.
+            Highest quality is 10, lowest is 0.
         progress (gr.Progress, optional): Gradio progress tracker. Defaults to gr.Progress(track_tqdm=True).
 
     Returns:
@@ -285,26 +288,28 @@ def generate_video(
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmpfile:
         video_path = tmpfile.name
 
-    export_to_video(output_frames_list, video_path, fps=FIXED_FPS)
+    export_to_video(output_frames_list, video_path, fps=FIXED_FPS, quality=quality)
 
     return video_path, current_seed
 
 
 with gr.Blocks() as demo:
-    gr.Markdown("# Fast 4 steps Wan 2.2 I2V (14B) with Lightning LoRA + Live Wallpaper LoRA")
+    gr.Markdown("# Wan 2.2 I2V (14B)")
+    gr.Markdown("ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
     gr.Markdown("run Wan 2.2 in just 4-8 steps, with [Lightning LoRA](https://huggingface.co/Kijai/WanVideo_comfy/tree/main/Wan22-Lightning), fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU⚡️")
     with gr.Row():
         with gr.Column():
             input_image_component = gr.Image(type="pil", label="Input Image")
-            last_image_component = gr.Image(type="pil", label="Last Image (Optional)")
             prompt_input = gr.Textbox(label="Prompt", value=default_prompt_i2v)
             duration_seconds_input = gr.Slider(minimum=MIN_DURATION, maximum=MAX_DURATION, step=0.1, value=3.5, label="Duration (seconds)", info=f"Clamped to model's {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.")
+            steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps")
+            quality_slider = gr.Slider(minimum=0, maximum=10, step=1, value=5, label="Video Quality")
 
             with gr.Accordion("Advanced Settings", open=False):
-                negative_prompt_input = gr.Textbox(label="Negative Prompt", value=default_negative_prompt, lines=3)
+                last_image_component = gr.Image(type="pil", label="Last Image (Optional)")
+                negative_prompt_input = gr.Textbox(label="Negative Prompt", value=default_negative_prompt, info="Used if any Guidance Scale > 1.", lines=3)
                 seed_input = gr.Slider(label="Seed", minimum=0, maximum=MAX_SEED, step=1, value=42, interactive=True)
                 randomize_seed_checkbox = gr.Checkbox(label="Randomize seed", value=True, interactive=True)
-                steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps")
                 guidance_scale_input = gr.Slider(minimum=0.0, maximum=10.0, step=0.5, value=1, label="Guidance Scale - high noise stage")
                 guidance_scale_2_input = gr.Slider(minimum=0.0, maximum=10.0, step=0.5, value=1, label="Guidance Scale 2 - low noise stage")
 
@@ -315,7 +320,8 @@ with gr.Blocks() as demo:
     ui_inputs = [
         input_image_component, last_image_component, prompt_input, steps_slider,
         negative_prompt_input, duration_seconds_input,
-        guidance_scale_input, guidance_scale_2_input, seed_input, randomize_seed_checkbox
+        guidance_scale_input, guidance_scale_2_input, seed_input, randomize_seed_checkbox,
+        quality_slider
     ]
     generate_button.click(fn=generate_video, inputs=ui_inputs, outputs=[video_output, seed_input])
 
