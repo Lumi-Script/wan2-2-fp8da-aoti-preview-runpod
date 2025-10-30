@@ -296,7 +296,7 @@ def generate_video(
 
 with gr.Blocks() as demo:
     gr.Markdown("# Wan 2.2 I2V (14B)")
-    gr.Markdown("ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
+    gr.Markdown("## ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
     gr.Markdown("run Wan 2.2 in just 4-8 steps, with [Lightning LoRA](https://huggingface.co/Kijai/WanVideo_comfy/tree/main/Wan22-Lightning), fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU⚡️")
     with gr.Row():
         with gr.Column():
@@ -304,7 +304,7 @@ with gr.Blocks() as demo:
             prompt_input = gr.Textbox(label="Prompt", value=default_prompt_i2v)
             duration_seconds_input = gr.Slider(minimum=MIN_DURATION, maximum=MAX_DURATION, step=0.1, value=3.5, label="Duration (seconds)", info=f"Clamped to model's {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.")
             steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps")
-            quality_slider = gr.Slider(minimum=1, maximum=10, step=1, value=5, label="Video Quality")
+            quality_slider = gr.Slider(minimum=1, maximum=10, step=1, value=6, label="Video Quality")
 
             with gr.Accordion("Advanced Settings", open=False):
                 last_image_component = gr.Image(type="pil", label="Last Image (Optional)")
