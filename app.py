@@ -72,7 +72,7 @@ pipe = WanImageToVideoPipeline.from_pretrained(
     torch_dtype=torch.bfloat16,
 ).to('cuda')
 
-original_scheduler = copy.deepcopy(pipe.scheduler.config)
+original_scheduler = copy.deepcopy(pipe.scheduler)
 print(original_scheduler)
 
 pipe.load_lora_weights(
