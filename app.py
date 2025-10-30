@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image
 import random
 import gc
+import copy
 
 from torchao.quantization import quantize_
 from torchao.quantization import Float8DynamicActivationFloat8WeightConfig
@@ -75,6 +76,9 @@ pipe.load_lora_weights(
     weight_name="livewallpaper_wan22_14b_i2v_low_model_0_1_e26.safetensors",
     adapter_name="livewallpaper"
 )
+
+default_transformer = copy.deepcopy(pipe.transformer)
+
 pipe.set_adapters(["livewallpaper"], adapter_weights=[1.])
 pipe.fuse_lora(adapter_names=["livewallpaper"], lora_scale=2., components=["transformer"])
 pipe.unload_lora_weights()
@@ -82,10 +86,14 @@ pipe.unload_lora_weights()
 quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
 quantize_(pipe.transformer, Float8DynamicActivationFloat8WeightConfig())
 quantize_(pipe.transformer_2, Float8DynamicActivationFloat8WeightConfig())
+quantize_(default_transformer, Float8DynamicActivationFloat8WeightConfig())
 
 aoti.aoti_blocks_load(pipe.transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
 aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
+aoti.aoti_blocks_load(default_transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
 
+static_transformer = pipe.transformer
+pipe.transformer = default_transformer
 
 default_prompt_i2v = "make this image come alive, cinematic motion, smooth animation"
 default_negative_prompt = "色调艳丽, 过曝, 静态, 细节模糊不清, 字幕, 风格, 作品, 画作, 画面, 静止, 整体发灰, 最差质量, 低质量, JPEG压缩残留, 丑陋的, 残缺的, 多余的手指, 画得不好的手部, 画得不好的脸部, 畸形的, 毁容的, 形态畸形的肢体, 手指融合, 静止不动的画面, 杂乱的背景, 三条腿, 背景人很多, 倒着走"
@@ -166,7 +174,7 @@ def get_inference_duration(
     guidance_scale,
     guidance_scale_2,
     current_seed,
-    progress
+    live_wallpaper_style,
 ):
     BASE_FRAMES_HEIGHT_WIDTH = 81 * 832 * 624
     BASE_STEP_DURATION = 15
@@ -187,9 +195,14 @@ def run_inference(
     guidance_scale,
     guidance_scale_2,
     current_seed,
+    live_wallpaper_style,
     progress=gr.Progress(track_tqdm=True),
 ):
-    return pipe(
+
+    if live_wallpaper_style:
+        pipe.transformer = static_transformer
+
+    output_frames = pipe(
         image=resized_image,
         last_image=processed_last_image,
         prompt=prompt,
@@ -202,6 +215,10 @@ def run_inference(
         num_inference_steps=int(steps),
         generator=torch.Generator(device="cuda").manual_seed(current_seed),
     ).frames[0]
+
+    pipe.transformer = default_transformer
+
+    return output_frames
 
 
 def generate_video(
@@ -216,6 +233,7 @@ def generate_video(
     seed=42,
     randomize_seed=False,
     quality=5,
+    live_wallpaper_style=False,
     progress=gr.Progress(track_tqdm=True),
 ):
     """
@@ -245,6 +263,8 @@ def generate_video(
             Defaults to False.
         quality (float, optional): Video output quality. Default is 5. Uses variable bit rate.
             Highest quality is 10, lowest is 1.
+        live_wallpaper_style (bool, optional): Whether to use the live wallpaper transformer.
+            Defaults to False.
         progress (gr.Progress, optional): Gradio progress tracker. Defaults to gr.Progress(track_tqdm=True).
 
     Returns:
@@ -283,6 +303,7 @@ def generate_video(
         guidance_scale,
         guidance_scale_2,
         current_seed,
+        live_wallpaper_style,
         progress,
     )
 
@@ -302,6 +323,7 @@ with gr.Blocks() as demo:
         with gr.Column():
             input_image_component = gr.Image(type="pil", label="Input Image")
             prompt_input = gr.Textbox(label="Prompt", value=default_prompt_i2v)
+            live_wallpaper_style_checkbox = gr.Checkbox(label="Live Wallpaper Style", value=False, interactive=True)
             duration_seconds_input = gr.Slider(minimum=MIN_DURATION, maximum=MAX_DURATION, step=0.1, value=3.5, label="Duration (seconds)", info=f"Clamped to model's {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.")
             steps_slider = gr.Slider(minimum=1, maximum=30, step=1, value=6, label="Inference Steps")
             quality_slider = gr.Slider(minimum=1, maximum=10, step=1, value=6, label="Video Quality")
@@ -323,7 +345,7 @@ with gr.Blocks() as demo:
         input_image_component, last_image_component, prompt_input, steps_slider,
         negative_prompt_input, duration_seconds_input,
         guidance_scale_input, guidance_scale_2_input, seed_input, randomize_seed_checkbox,
-        quality_slider
+        quality_slider, live_wallpaper_style_checkbox
     ]
     generate_button.click(fn=generate_video, inputs=ui_inputs, outputs=[video_output, file_output, seed_input])
 
