@@ -249,8 +249,9 @@ def generate_video(
 
     Returns:
         tuple: A tuple containing:
-            - video_path (str): Path to the generated video file (.mp4)
-            - current_seed (int): The seed used for generation (useful when randomize_seed=True)
+            - video_path (str): Path for the video component.
+            - video_path (str): Path for the file download component. Attempt to avoid reconversion in video component.
+            - current_seed (int): The seed used for generation.
 
     Raises:
         gr.Error: If input_image is None (no image uploaded).
@@ -290,7 +291,7 @@ def generate_video(
 
     export_to_video(output_frames_list, video_path, fps=FIXED_FPS, quality=quality)
 
-    return video_path, current_seed
+    return video_path, video_path, current_seed
 
 
 with gr.Blocks() as demo:
@@ -316,6 +317,7 @@ with gr.Blocks() as demo:
             generate_button = gr.Button("Generate Video", variant="primary")
         with gr.Column():
             video_output = gr.Video(label="Generated Video", autoplay=True, interactive=False)
+            file_output = gr.File(label="Download Video")
 
     ui_inputs = [
         input_image_component, last_image_component, prompt_input, steps_slider,
@@ -323,7 +325,7 @@ with gr.Blocks() as demo:
         guidance_scale_input, guidance_scale_2_input, seed_input, randomize_seed_checkbox,
         quality_slider
     ]
-    generate_button.click(fn=generate_video, inputs=ui_inputs, outputs=[video_output, seed_input])
+    generate_button.click(fn=generate_video, inputs=ui_inputs, outputs=[video_output, file_output, seed_input])
 
 
 if __name__ == "__main__":
