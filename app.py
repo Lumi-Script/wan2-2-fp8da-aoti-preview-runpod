@@ -54,54 +54,12 @@ SCHEDULER_MAP = {
     "DPMSolverSinglestep": DPMSolverSinglestepScheduler,
 }
 
-
 pipe = WanImageToVideoPipeline.from_pretrained(
-    MODEL_ID,
-    transformer=WanTransformer3DModel.from_pretrained(
-        'cbensimon/Wan2.2-I2V-A14B-bf16-Diffusers',
-        subfolder='transformer',
-        torch_dtype=torch.bfloat16,
-        device_map='cuda',
-    ),
-    transformer_2=WanTransformer3DModel.from_pretrained(
-        'cbensimon/Wan2.2-I2V-A14B-bf16-Diffusers',
-        subfolder='transformer_2',
-        torch_dtype=torch.bfloat16,
-        device_map='cuda',
-    ),
+    "TestOrganizationPleaseIgnore/WAMU_v1_WAN2.2_I2V_LIGHTNING",
     torch_dtype=torch.bfloat16,
 ).to('cuda')
-
 original_scheduler = copy.deepcopy(pipe.scheduler)
 print(original_scheduler)
-
-pipe.load_lora_weights(
-    "Kijai/WanVideo_comfy",
-    weight_name="Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors",
-    adapter_name="lightx2v"
-)
-kwargs_lora = {}
-kwargs_lora["load_into_transformer_2"] = True
-pipe.load_lora_weights(
-    "Kijai/WanVideo_comfy",
-    weight_name="Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors",
-    adapter_name="lightx2v_2", **kwargs_lora
-)
-
-pipe.set_adapters(["lightx2v", "lightx2v_2"], adapter_weights=[1., 1.])
-pipe.fuse_lora(adapter_names=["lightx2v"], lora_scale=3., components=["transformer"])
-pipe.fuse_lora(adapter_names=["lightx2v_2"], lora_scale=1., components=["transformer_2"])
-pipe.unload_lora_weights()
-
-# livewallpaper
-pipe.load_lora_weights(
-    "voxvici/flux-lora",
-    weight_name="livewallpaper_wan22_14b_i2v_low_model_0_1_e26.safetensors",
-    adapter_name="livewallpaper"
-)
-pipe.set_adapters(["livewallpaper"], adapter_weights=[1.])
-pipe.fuse_lora(adapter_names=["livewallpaper"], lora_scale=.7, components=["transformer"])
-pipe.unload_lora_weights()
 
 quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
 quantize_(pipe.transformer, Float8DynamicActivationFloat8WeightConfig())
@@ -342,9 +300,9 @@ def generate_video(
 
 
 with gr.Blocks() as demo:
-    gr.Markdown("# Wan 2.2 I2V (14B)")
+    gr.Markdown("# WAMU - Wan 2.2 I2V (14B)")
     gr.Markdown("## ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
-    gr.Markdown("run Wan 2.2 in just 4-8 steps, with [Lightning LoRA](https://huggingface.co/Kijai/WanVideo_comfy/tree/main/Wan22-Lightning), fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU⚡️")
+    gr.Markdown("run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU⚡️")
     with gr.Row():
         with gr.Column():
             input_image_component = gr.Image(type="pil", label="Input Image")
