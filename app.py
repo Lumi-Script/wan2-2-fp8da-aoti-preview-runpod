@@ -55,7 +55,7 @@ SCHEDULER_MAP = {
 }
 
 pipe = WanImageToVideoPipeline.from_pretrained(
-    "TestOrganizationPleaseIgnore/WAMU_v2_WAN2.2_I2V_LIGHTNING_preview7",
+    "TestOrganizationPleaseIgnore/WAMU_v2_WAN2.2_I2V_LIGHTNING",
     torch_dtype=torch.bfloat16,
 ).to('cuda')
 original_scheduler = copy.deepcopy(pipe.scheduler)
@@ -299,10 +299,10 @@ def generate_video(
     return video_path, video_path, current_seed
 
 
-with gr.Blocks() as demo:
-    gr.Markdown("# WAMU - Wan 2.2 I2V (14B)")
+with gr.Blocks(theme=gr.themes.Soft(), delete_cache=(12800, 12800)) as demo:
+    gr.Markdown("# WAMU V2 - Wan 2.2 I2V (14B) 🐢")
     gr.Markdown("## ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
-    gr.Markdown("run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU⚡️")
+    gr.Markdown("run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU")
     with gr.Row():
         with gr.Column():
             input_image_component = gr.Image(type="pil", label="Input Image")
@@ -341,4 +341,8 @@ with gr.Blocks() as demo:
 
 
 if __name__ == "__main__":
-    demo.queue().launch(mcp_server=True)
+    demo.queue().launch(
+        mcp_server=True,
+        ssr_mode=False,
+        show_error=True,
+    )
