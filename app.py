@@ -302,6 +302,7 @@ def generate_video(
 with gr.Blocks(theme=gr.themes.Soft(), delete_cache=(12800, 12800)) as demo:
     gr.Markdown("# WAMU V2 - Wan 2.2 I2V (14B) 🐢")
     gr.Markdown("## ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
+    gr.Markdown('Try the previous version: [WAMU v1](https://huggingface.co/spaces/r3gm/wan2-2-fp8da-aoti-preview2)')
     gr.Markdown("run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU")
     with gr.Row():
         with gr.Column():
