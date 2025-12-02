@@ -10,6 +10,8 @@ from PIL import Image
 import random
 import gc
 import copy
+import os
+import shutil
 
 from torchao.quantization import quantize_
 from torchao.quantization import Float8DynamicActivationFloat8WeightConfig
@@ -44,6 +46,8 @@ MAX_FRAMES_MODEL = 160
 MIN_DURATION = round(MIN_FRAMES_MODEL / FIXED_FPS, 1)
 MAX_DURATION = round(MAX_FRAMES_MODEL / FIXED_FPS, 1)
 
+CACHE_DIR = os.path.expanduser("~/.cache/huggingface/")
+
 SCHEDULER_MAP = {
     "FlowMatchEulerDiscrete": FlowMatchEulerDiscreteScheduler,
     "SASolver": SASolverScheduler,
@@ -60,6 +64,12 @@ pipe = WanImageToVideoPipeline.from_pretrained(
 ).to('cuda')
 original_scheduler = copy.deepcopy(pipe.scheduler)
 print(original_scheduler)
+
+if os.path.exists(CACHE_DIR):
+    shutil.rmtree(CACHE_DIR)
+    print("Deleted Hugging Face cache.")
+else:
+    print("No hub cache found.")
 
 quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
 quantize_(pipe.transformer, Float8DynamicActivationFloat8WeightConfig())
@@ -299,11 +309,11 @@ def generate_video(
     return video_path, video_path, current_seed
 
 
-with gr.Blocks(theme=gr.themes.Soft(), delete_cache=(12800, 12800)) as demo:
+with gr.Blocks(theme=gr.themes.Soft(), delete_cache=(3600, 10800)) as demo:
     gr.Markdown("# WAMU V2 - Wan 2.2 I2V (14B) 🐢")
     gr.Markdown("## ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
     gr.Markdown('Try the previous version: [WAMU v1](https://huggingface.co/spaces/r3gm/wan2-2-fp8da-aoti-preview2)')
-    gr.Markdown("run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU")
+    gr.Markdown("Run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU")
     with gr.Row():
         with gr.Column():
             input_image_component = gr.Image(type="pil", label="Input Image")
