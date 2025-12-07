@@ -1,5 +1,5 @@
 ---
-title: Wan2.2 14B Fast Preview
+title: Wan2.2 14B Preview
 emoji: 🐌
 colorFrom: yellow
 colorTo: pink
