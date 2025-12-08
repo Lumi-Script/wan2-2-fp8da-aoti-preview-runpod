@@ -36,6 +36,11 @@ import aoti
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 warnings.filterwarnings("ignore")
+IS_ZERO_GPU = bool(os.getenv("SPACES_ZERO_GPU"))
+
+if IS_ZERO_GPU:
+    print("Loading...")
+    subprocess.run("rm -rf /data-nvme/zerogpu-offload/*", env={}, shell=True)
 
 # --- FRAME EXTRACTION JS & LOGIC ---
 
