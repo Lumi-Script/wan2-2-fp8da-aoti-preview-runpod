@@ -1,6 +1,6 @@
 git+https://github.com/linoytsaban/diffusers.git@wan22-loras
 
-transformers
+transformers<5
 accelerate
 safetensors
 sentencepiece
