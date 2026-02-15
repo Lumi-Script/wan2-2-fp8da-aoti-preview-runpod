@@ -38,9 +38,9 @@ os.environ["TOKENIZERS_PARALLELISM"] = "true"
 warnings.filterwarnings("ignore")
 IS_ZERO_GPU = bool(os.getenv("SPACES_ZERO_GPU"))
 
-if IS_ZERO_GPU:
-    print("Loading...")
-    subprocess.run("rm -rf /data-nvme/zerogpu-offload/*", env={}, shell=True)
+# if IS_ZERO_GPU:
+#     print("Loading...")
+#     subprocess.run("rm -rf /data-nvme/zerogpu-offload/*", env={}, shell=True)
 
 # --- FRAME EXTRACTION JS & LOGIC ---
 
@@ -373,7 +373,7 @@ def get_inference_duration(
         inter_time = (total_out_frames * 0.02)
         gen_time += inter_time
 
-    return 10 + gen_time
+    return 15 + gen_time
 
 
 @spaces.GPU(duration=get_inference_duration)
@@ -563,7 +563,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 10800)) as d
     gr.Markdown("## WAMU V2 - Wan 2.2 I2V (14B) 🐢🐢")
     gr.Markdown("#### ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
     gr.Markdown('Try the previous version: [WAMU v1](https://huggingface.co/spaces/r3gm/wan2-2-fp8da-aoti-preview2)')
-    gr.Markdown("Run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU")
+    gr.Markdown("Run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU.")
 
     with gr.Row():
         with gr.Column():
