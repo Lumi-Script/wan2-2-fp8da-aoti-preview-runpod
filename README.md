@@ -3,7 +3,7 @@ title: Wan2.2 14B Preview
 emoji: 🐌
 colorFrom: yellow
 colorTo: pink
-sdk: gradio
+sdk: static
 sdk_version: 5.44.1
 app_file: app.py
 pinned: false
