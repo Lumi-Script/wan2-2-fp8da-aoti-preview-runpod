@@ -5,6 +5,7 @@ colorFrom: yellow
 colorTo: pink
 sdk: gradio
 sdk_version: 5.44.1
+python_version: "3.10"
 app_file: app.py
 pinned: false
 short_description: generate a video from an image with a text prompt
