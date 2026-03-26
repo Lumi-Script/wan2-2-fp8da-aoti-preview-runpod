@@ -263,11 +263,11 @@ pipe = WanImageToVideoPipeline.from_pretrained(
 ).to('cuda')
 original_scheduler = copy.deepcopy(pipe.scheduler)
 
-if os.path.exists(CACHE_DIR):
-    shutil.rmtree(CACHE_DIR)
-    print("Deleted Hugging Face cache.")
-else:
-    print("No hub cache found.")
+# if os.path.exists(CACHE_DIR):
+#     shutil.rmtree(CACHE_DIR)
+#     print("Deleted Hugging Face cache.")
+# else:
+#     print("No hub cache found.")
 
 quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
 quantize_(pipe.transformer, Float8DynamicActivationFloat8WeightConfig())
@@ -562,7 +562,7 @@ CSS = """
 with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 10800)) as demo:
     gr.Markdown("## WAMU V2 - Wan 2.2 I2V (14B) 🐢🐢")
     gr.Markdown("#### ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
-    gr.Markdown('Try the previous version: [WAMU v1](https://huggingface.co/spaces/r3gm/wan2-2-fp8da-aoti-preview2)')
+    gr.Markdown('Try the alternative version: [WAMU space](https://huggingface.co/spaces/r3gm/wan2-2-fp8da-aoti-preview2)')
     gr.Markdown("Run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU.")
 
     with gr.Row():
