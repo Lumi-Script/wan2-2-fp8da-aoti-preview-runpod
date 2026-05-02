@@ -31,6 +31,10 @@ from diffusers import (
 from diffusers.pipelines.wan.pipeline_wan_i2v import WanImageToVideoPipeline
 from diffusers.utils.export_utils import export_to_video
 
+# Safety Checker Imports
+from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
+from transformers import AutoImageProcessor
+
 from torchao.quantization import quantize_, Float8DynamicActivationFloat8WeightConfig, Int8WeightOnlyConfig
 import aoti
 
@@ -41,6 +45,19 @@ IS_ZERO_GPU = bool(os.getenv("SPACES_ZERO_GPU"))
 # if IS_ZERO_GPU:
 #     print("Loading...")
 #     subprocess.run("rm -rf /data-nvme/zerogpu-offload/*", env={}, shell=True)
+
+# --- SAFETY CHECKER INITIALIZATION ---
+safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to("cuda")
+feature_extractor = AutoImageProcessor.from_pretrained("CompVis/stable-diffusion-safety-checker")
+
+def check_nsfw(frame_np):
+    """Checks a single numpy frame (float32, 0-1) for NSFW content."""
+    # Convert back to uint8 PIL for the processor
+    img = Image.fromarray((frame_np * 255).astype(np.uint8))
+    inputs = feature_extractor(img, return_tensors="pt").to("cuda")
+    # Safety checker expects float16 on GPU
+    _, has_nsfw_concept = safety_checker(images=inputs.pixel_values, clip_input=inputs.pixel_values.to(torch.float16))
+    return has_nsfw_concept[0]
 
 # --- FRAME EXTRACTION JS & LOGIC ---
 
@@ -126,10 +143,10 @@ def interpolate_bits(frames_np, multiplier=2, scale=1.0):
     """
     Interpolation maintaining Numpy Float 0-1 format.
     Args:
-        frames_np: Numpy Array (Time, Height, Width, Channels) - Float32 [0.0, 1.0]
+        frames_np: Numpy Array (Time, Height, Width, Channels) - Float32[0.0, 1.0]
         multiplier: int (2, 4, 8)
     Returns:
-        List of Numpy Arrays (Height, Width, Channels) - Float32 [0.0, 1.0]
+        List of Numpy Arrays (Height, Width, Channels) - Float32[0.0, 1.0]
     """
     
     # Handle input shape
@@ -175,7 +192,7 @@ def interpolate_bits(frames_np, multiplier=2, scale=1.0):
 
     def make_inference(I0, I1, n):
         if rife_model.version >= 3.9:
-            res = []
+            res =[]
             for i in range(n):
                 res.append(rife_model.inference(I0, I1, (i+1) * 1. / (n+1), scale))
             return res
@@ -186,11 +203,11 @@ def interpolate_bits(frames_np, multiplier=2, scale=1.0):
             first_half = make_inference(I0, middle, n=n//2)
             second_half = make_inference(middle, I1, n=n//2)
             if n % 2:
-                return [*first_half, middle, *second_half]
+                return[*first_half, middle, *second_half]
             else:
-                return [*first_half, *second_half]
+                return[*first_half, *second_half]
 
-    output_frames = []
+    output_frames =[]
 
     # Process Frames
     # Load first frame into GPU
@@ -355,6 +372,7 @@ def get_inference_duration(
     frame_multiplier,
     quality,
     duration_seconds,
+    enable_safety_checker,
     progress
 ):
     BASE_FRAMES_HEIGHT_WIDTH = 81 * 832 * 624
@@ -392,6 +410,7 @@ def run_inference(
     frame_multiplier,
     quality,
     duration_seconds,
+    enable_safety_checker,
     progress=gr.Progress(track_tqdm=True),
 ):
     scheduler_class = SCHEDULER_MAP.get(scheduler_name)
@@ -426,6 +445,18 @@ def run_inference(
     raw_frames_np = result.frames[0]  # Returns (T, H, W, C) float32
     pipe.scheduler = original_scheduler
 
+    # --- SAFETY CHECKER LOGIC ---
+    is_nsfw = False
+    if enable_safety_checker:
+        # Implements an automated review process to check the results before making them publicly available.
+        # If the user did not supply a 'last_image', the final freely-generated frame is verified by 
+        # the safety checker to ensure no unrequested explicit content was created.
+        if processed_last_image is None:
+            is_nsfw = check_nsfw(raw_frames_np[-1])
+            
+    if is_nsfw:
+        return None, task_name, True
+
     frame_factor = frame_multiplier // FIXED_FPS
     if frame_factor > 1:
         start = time.time()
@@ -446,7 +477,7 @@ def run_inference(
         export_to_video(final_frames, video_path, fps=final_fps, quality=quality)
         pbar.update(1)
 
-    return video_path, task_name
+    return video_path, task_name, False
 
 
 def generate_video(
@@ -465,6 +496,7 @@ def generate_video(
     flow_shift=6.0,
     frame_multiplier=16,
     video_component=True,
+    enable_safety_checker=True,
     progress=gr.Progress(track_tqdm=True),
 ):
     """
@@ -497,6 +529,7 @@ def generate_video(
         frame_multiplier (int, optional): The int value for fps enhancer
         video_component(bool, optional): Show video player in output.
             Defaults to True.
+        enable_safety_checker(bool, optional): Enable NSFW filter.
         progress (gr.Progress, optional): Gradio progress tracker. Defaults to gr.Progress(track_tqdm=True).
     Returns:
         tuple: A tuple containing:
@@ -523,7 +556,7 @@ def generate_video(
     if last_image:
         processed_last_image = resize_and_crop_to_match(last_image, resized_image)
 
-    video_path, task_n = run_inference(
+    video_path, task_n, is_nsfw = run_inference(
         resized_image,
         processed_last_image,
         prompt,
@@ -538,8 +571,13 @@ def generate_video(
         frame_multiplier,
         quality,
         duration_seconds,
+        enable_safety_checker,
         progress,
     )
+
+    if is_nsfw:
+        raise gr.Error("Generation blocked by guardrails: The resulting video may contain explicit content.")
+
     print(f"GPU complete: {task_n}")
 
     return (video_path if video_component else None), video_path, current_seed
@@ -592,6 +630,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 10800)) as d
                     info="Select a custom scheduler."
                 )
                 flow_shift_slider = gr.Slider(minimum=0.5, maximum=15.0, step=0.1, value=3.0, label="Flow Shift")
+                safety_checker_input = gr.Checkbox(label="Enable Safety Filter", value=True, info="Prevents unrequested sensitive or explicit content.")
                 play_result_video = gr.Checkbox(label="Display result", value=True, interactive=True)
 
             generate_button = gr.Button("Generate Video", variant="primary")
@@ -608,12 +647,12 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 10800)) as d
             
             file_output = gr.File(label="Download Video")
 
-    ui_inputs = [
+    ui_inputs =[
         input_image_component, last_image_component, prompt_input, steps_slider,
         negative_prompt_input, duration_seconds_input,
         guidance_scale_input, guidance_scale_2_input, seed_input, randomize_seed_checkbox,
         quality_slider, scheduler_dropdown, flow_shift_slider, frame_multi,
-        play_result_video
+        play_result_video, safety_checker_input
     ]
     
     generate_button.click(
