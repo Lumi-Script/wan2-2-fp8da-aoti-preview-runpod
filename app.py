@@ -290,8 +290,8 @@ quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
 quantize_(pipe.transformer, Float8DynamicActivationFloat8WeightConfig())
 quantize_(pipe.transformer_2, Float8DynamicActivationFloat8WeightConfig())
 
-aoti.aoti_blocks_load(pipe.transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
-aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
+# aoti.aoti_blocks_load(pipe.transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
+# aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
 
 # pipe.vae.enable_slicing()
 # pipe.vae.enable_tiling()
@@ -394,7 +394,7 @@ def get_inference_duration(
     return 15 + gen_time
 
 
-@spaces.GPU(duration=get_inference_duration)
+@spaces.GPU(duration=get_inference_duration, size='xlarge') # x2 GPU time?
 def run_inference(
     resized_image,
     processed_last_image,
