@@ -372,18 +372,19 @@ def get_inference_duration(
     frame_multiplier,
     quality,
     duration_seconds,
+    safe_mode,
     enable_safety_checker,
     progress
 ):
     BASE_FRAMES_HEIGHT_WIDTH = 81 * 832 * 624
-    BASE_STEP_DURATION = 15
+    BASE_STEP_DURATION = 8.5
     width, height = resized_image.size
     factor = num_frames * width * height / BASE_FRAMES_HEIGHT_WIDTH
     step_duration = BASE_STEP_DURATION * factor ** 1.5
     gen_time = int(steps) * step_duration
 
     if guidance_scale > 1:
-        gen_time = gen_time * 1.8
+        gen_time = gen_time * 1.9
 
     frame_factor = frame_multiplier // FIXED_FPS
     if frame_factor > 1:
@@ -391,10 +392,15 @@ def get_inference_duration(
         inter_time = (total_out_frames * 0.02)
         gen_time += inter_time
 
-    return 15 + gen_time
+    total_time = 15 + gen_time
+    if safe_mode:
+        total_time = total_time * 1.20
+
+    return total_time
+    
 
 
-@spaces.GPU(duration=get_inference_duration, size='xlarge') # x2 GPU time?
+@spaces.GPU(duration=get_inference_duration, size='xlarge')
 def run_inference(
     resized_image,
     processed_last_image,
@@ -410,6 +416,7 @@ def run_inference(
     frame_multiplier,
     quality,
     duration_seconds,
+    safe_mode,
     enable_safety_checker,
     progress=gr.Progress(track_tqdm=True),
 ):
@@ -496,6 +503,7 @@ def generate_video(
     flow_shift=6.0,
     frame_multiplier=16,
     video_component=True,
+    safe_mode=False,
     enable_safety_checker=True,
     progress=gr.Progress(track_tqdm=True),
 ):
@@ -571,6 +579,7 @@ def generate_video(
         frame_multiplier,
         quality,
         duration_seconds,
+        safe_mode,
         enable_safety_checker,
         progress,
     )
@@ -597,9 +606,8 @@ CSS = """
 """
 
 
-with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 10800)) as demo:
+with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 3700)) as demo:
     gr.Markdown("## WAMU V2 - Wan 2.2 I2V (14B) 🐢🐢")
-    gr.Markdown("#### ℹ️ **A Note on Performance:** This version prioritizes a straightforward setup over maximum speed, so performance may vary.")
     gr.Markdown('Try the alternative version: [WAMU space](https://huggingface.co/spaces/r3gm/wan2-2-fp8da-aoti-preview2)')
     gr.Markdown("Run Wan 2.2 in just 4-8 steps, fp8 quantization & AoT compilation - compatible with 🧨 diffusers and ZeroGPU.")
 
@@ -609,10 +617,15 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 10800)) as d
             prompt_input = gr.Textbox(label="Prompt", value=default_prompt_i2v)
             duration_seconds_input = gr.Slider(minimum=MIN_DURATION, maximum=MAX_DURATION, step=0.1, value=3.5, label="Duration (seconds)", info=f"Clamped to model's {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.")
             frame_multi = gr.Dropdown(
-                choices=[FIXED_FPS, FIXED_FPS*2, FIXED_FPS*4],
+                choices=[FIXED_FPS, FIXED_FPS*2, FIXED_FPS*4, FIXED_FPS*8],
                 value=FIXED_FPS,
                 label="Video Fluidity (Frames per Second)",
                 info="Extra frames will be generated using flow estimation, which estimates motion between frames to make the video smoother."
+            )
+            safe_mode_checkbox = gr.Checkbox(
+                label="🛠️ Safe Mode",
+                value=True,
+                info="Safe Mode: Requests 20% extra processing time to try to prevent unfinished tasks when the server is busy."
             )
             with gr.Accordion("Advanced Settings", open=False):
                 last_image_component = gr.Image(type="pil", label="Last Image (Optional)", sources=["upload", "clipboard"])
@@ -652,7 +665,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 10800)) as d
         negative_prompt_input, duration_seconds_input,
         guidance_scale_input, guidance_scale_2_input, seed_input, randomize_seed_checkbox,
         quality_slider, scheduler_dropdown, flow_shift_slider, frame_multi,
-        play_result_video, safety_checker_input
+        play_result_video, safe_mode_checkbox, safety_checker_input
     ]
     
     generate_button.click(
