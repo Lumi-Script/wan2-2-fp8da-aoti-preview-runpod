@@ -287,8 +287,11 @@ original_scheduler = copy.deepcopy(pipe.scheduler)
 #     print("No hub cache found.")
 
 quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
+torch._dynamo.reset()
 quantize_(pipe.transformer, Float8DynamicActivationFloat8WeightConfig())
+torch._dynamo.reset()
 quantize_(pipe.transformer_2, Float8DynamicActivationFloat8WeightConfig())
+torch._dynamo.reset()
 
 aoti.aoti_blocks_load(pipe.transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
 aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
@@ -394,7 +397,7 @@ def get_inference_duration(
 
     total_time = 15 + gen_time
     if safe_mode:
-        total_time = total_time * 1.20
+        total_time = total_time * 1.25
 
     return total_time
     
@@ -625,7 +628,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 3700)) as de
             safe_mode_checkbox = gr.Checkbox(
                 label="🛠️ Safe Mode",
                 value=True,
-                info="Safe Mode: Requests 20% extra processing time to try to prevent unfinished tasks when the server is busy."
+                info="Safe Mode: Requests 25% extra processing time to try to prevent unfinished tasks when the server is busy."
             )
             with gr.Accordion("Advanced Settings", open=False):
                 last_image_component = gr.Image(type="pil", label="Last Image (Optional)", sources=["upload", "clipboard"])
