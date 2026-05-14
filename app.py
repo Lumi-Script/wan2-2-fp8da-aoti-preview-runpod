@@ -290,8 +290,8 @@ quantize_(pipe.text_encoder, Int8WeightOnlyConfig())
 quantize_(pipe.transformer, Float8DynamicActivationFloat8WeightConfig())
 quantize_(pipe.transformer_2, Float8DynamicActivationFloat8WeightConfig())
 
-# aoti.aoti_blocks_load(pipe.transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
-# aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
+aoti.aoti_blocks_load(pipe.transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
+aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
 
 # pipe.vae.enable_slicing()
 # pipe.vae.enable_tiling()
@@ -377,7 +377,7 @@ def get_inference_duration(
     progress
 ):
     BASE_FRAMES_HEIGHT_WIDTH = 81 * 832 * 624
-    BASE_STEP_DURATION = 8.5
+    BASE_STEP_DURATION = 8.
     width, height = resized_image.size
     factor = num_frames * width * height / BASE_FRAMES_HEIGHT_WIDTH
     step_duration = BASE_STEP_DURATION * factor ** 1.5
