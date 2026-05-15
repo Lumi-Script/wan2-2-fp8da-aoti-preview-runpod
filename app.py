@@ -1,4 +1,4 @@
-import os
+import os; os.system('pip install --upgrade --no-deps spaces')
 import spaces
 import shutil
 import subprocess
@@ -293,8 +293,14 @@ torch._dynamo.reset()
 quantize_(pipe.transformer_2, Float8DynamicActivationFloat8WeightConfig())
 torch._dynamo.reset()
 
-aoti.aoti_blocks_load(pipe.transformer, 'zerogpu-aoti/Wan2', variant='fp8da')
-aoti.aoti_blocks_load(pipe.transformer_2, 'zerogpu-aoti/Wan2', variant='fp8da')
+spaces.aoti_load(
+    module=pipe.transformer,
+    repo_id='cbensimon/WanTransformer3DModel-sm120-cu130-raa',
+)
+spaces.aoti_load(
+    module=pipe.transformer_2,
+    repo_id='cbensimon/WanTransformer3DModel-sm120-cu130-raa',
+)
 
 # pipe.vae.enable_slicing()
 # pipe.vae.enable_tiling()
@@ -380,14 +386,14 @@ def get_inference_duration(
     progress
 ):
     BASE_FRAMES_HEIGHT_WIDTH = 81 * 832 * 624
-    BASE_STEP_DURATION = 8.
+    BASE_STEP_DURATION = 5.
     width, height = resized_image.size
     factor = num_frames * width * height / BASE_FRAMES_HEIGHT_WIDTH
     step_duration = BASE_STEP_DURATION * factor ** 1.5
     gen_time = int(steps) * step_duration
 
     if guidance_scale > 1:
-        gen_time = gen_time * 1.9
+        gen_time = gen_time * 2.4
 
     frame_factor = frame_multiplier // FIXED_FPS
     if frame_factor > 1:
@@ -397,7 +403,7 @@ def get_inference_duration(
 
     total_time = 15 + gen_time
     if safe_mode:
-        total_time = total_time * 1.25
+        total_time = total_time * 1.3
 
     return total_time
     
@@ -588,7 +594,7 @@ def generate_video(
     )
 
     if is_nsfw:
-        raise gr.Error("Generation blocked by guardrails: The resulting video may contain explicit content.")
+        raise gr.Error("Generation blocked by guardrails: The resulting video may contain sensitive or explicit content.")
 
     print(f"GPU complete: {task_n}")
 
@@ -628,7 +634,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, delete_cache=(3600, 3700)) as de
             safe_mode_checkbox = gr.Checkbox(
                 label="🛠️ Safe Mode",
                 value=True,
-                info="Safe Mode: Requests 25% extra processing time to try to prevent unfinished tasks when the server is busy."
+                info="Safe Mode: Requests 30% extra processing time to try to prevent unfinished tasks when the server is busy."
             )
             with gr.Accordion("Advanced Settings", open=False):
                 last_image_component = gr.Image(type="pil", label="Last Image (Optional)", sources=["upload", "clipboard"])
