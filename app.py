@@ -1,4 +1,4 @@
-import os; os.system('pip install --upgrade --no-deps spaces')
+import os
 import spaces
 import shutil
 import subprocess
