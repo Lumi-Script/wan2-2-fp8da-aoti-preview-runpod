@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Enable lightning-fast downloads from huggingface at runtime
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
