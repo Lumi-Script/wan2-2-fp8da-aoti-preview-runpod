@@ -10,8 +10,8 @@ imageio-ffmpeg
 opencv-python
 torchao==0.17.0
 numpy>=1.16, <=1.23.5
-torch==2.11.0
-torchvision==0.26.0
+torch>=2.2.1
+torchvision>=0.17.1
 runpod==1.6.2
 spaces
 gradio
