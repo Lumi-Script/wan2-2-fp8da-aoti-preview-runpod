@@ -127,7 +127,9 @@ if not os.path.exists("RIFEv4.26_0921.zip"):
         "https://huggingface.co/r3gm/RIFE/resolve/main/RIFEv4.26_0921.zip",
         "-O", "RIFEv4.26_0921.zip"
     ], check=True)
-    subprocess.run(["unzip", "-o", "RIFEv4.26_0921.zip"], check=True)
+    import zipfile
+    with zipfile.ZipFile("RIFEv4.26_0921.zip", 'r') as zip_ref:
+        zip_ref.extractall(".")
 
 # sys.path.append(os.getcwd())
 
