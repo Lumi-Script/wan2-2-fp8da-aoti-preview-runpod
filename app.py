@@ -119,17 +119,7 @@ def clear_vram():
     torch.cuda.empty_cache()
 
 
-# RIFE
-if not os.path.exists("RIFEv4.26_0921.zip"):
-    print("Downloading RIFE Model...")
-    subprocess.run([
-        "wget", "-q",
-        "https://huggingface.co/r3gm/RIFE/resolve/main/RIFEv4.26_0921.zip",
-        "-O", "RIFEv4.26_0921.zip"
-    ], check=True)
-    import zipfile
-    with zipfile.ZipFile("RIFEv4.26_0921.zip", 'r') as zip_ref:
-        zip_ref.extractall(".")
+# RIFE model is now baked into the Docker image
 
 # sys.path.append(os.getcwd())
 
